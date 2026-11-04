@@ -51,7 +51,7 @@ def main():
             nbr = str(info["CLASSNBR"])
             if w["sections"] and nbr not in w["sections"]:
                 continue
-            seats = int(info["SEATSOPEN"])
+            seats = seats_open(info)
             cur_course[nbr] = seats
             prev = prev_course.get(nbr)
 
@@ -64,5 +64,21 @@ def main():
     json.dump(new_state, open(STATE_FILE, "w"), indent=2, sort_keys=True)
     if failures == len(WATCH):
         sys.exit(1)
+
+def seats_open(info):
+    # Try likely direct field names first
+    for k in ("SEATSOPEN", "SEATS_OPEN", "SEATSAVAILABLE", "AVAILSEATS"):
+        if k in info and str(info[k]).strip() != "":
+            return int(info[k])
+    # Otherwise compute from capacity minus enrolled
+    caps = [k for k in ("ENRLCAP", "ENRL_CAP", "CAPACITY", "CLASSCAP") if k in info]
+    enrl = [k for k in ("ENRLTOT", "ENRL_TOT", "ENROLLED", "ENRLTOTAL") if k in info]
+    if caps and enrl:
+        return int(info[caps[0]]) - int(info[enrl[0]])
+    # Nothing matched: show every field so we can pick the right one
+    print("UNKNOWN SEAT FIELDS. Available keys and values:")
+    for k, v in sorted(info.items()):
+        print(f"  {k}: {v}")
+    raise SystemExit("Could not find seat count field")
 
 main()
